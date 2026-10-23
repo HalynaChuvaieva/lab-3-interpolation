@@ -2,15 +2,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import brentq
 from scipy.interpolate import CubicSpline
+from scipy.interpolate import lagrange
 
 # задана функція
 def f(x):
     return (x - 1.0)**3 + 0.5 * np.exp(x)
 
-# інтервал локалізації кореня [a, b] та параметри сітки
 a, b = 0.0, 0.5
 m = 10          # кількість вузлів інтерполяції
-n = m - 1       # степінь інтерполяційного полінома (n = 9)
+n = m - 1       # степінь інтерполяційного полінома
 h = (b - a) / n # крок рівновіддалених вузлів
 
 # формування 10 рівновіддалених вузлів
@@ -29,13 +29,13 @@ def lagrange_poly(x_val, x_k, y_k):
         total += term
     return total
 
-# Побудова природного кубічного сплайна (другі похідні на кінцях дорівнюють 0)
+# побудова природного кубічного сплайна 
 cs_natural = CubicSpline(x_nodes, y_nodes, bc_type='natural')
 
 # Точний корінь за допомогою методу Брента
 root_exact = brentq(f, a, b, xtol=1e-15)
 
-# Корінь за допомогою прямої інтерполяції Лагранжа: розв'язуємо L_9(x) = 0
+# Корінь за допомогою прямої інтерполяції Лагранжа:L_9(x) = 0
 root_direct_lagrange = brentq(lambda x: lagrange_poly(x, x_nodes, y_nodes), a, b, xtol=1e-12)
 # Корінь за допомогою оберненої інтерполяції Лагранжа: обчислюємо L_9^(-1)(0)
 root_inverse_lagrange = lagrange_poly(0.0, y_nodes, x_nodes)
@@ -43,7 +43,7 @@ root_inverse_lagrange = lagrange_poly(0.0, y_nodes, x_nodes)
 root_spline = brentq(cs_natural, a, b, xtol=1e-12)
 
 
-print("=== ВУЗЛИ ІНТЕРПОЛЯЦІЇ (10 рівновіддалених вузлів) ===")
+print("=== ВУЗЛИ ІНТЕРПОЛЯЦІЇ ===")
 print(f"{'k':>2} | {'x_k':>10} | {'f(x_k)':>12}")
 print("-" * 30)
 for k in range(m):
@@ -112,3 +112,31 @@ ax2.grid(True, which='both', alpha=0.4)
 
 plt.tight_layout()
 plt.show()
+
+
+poly_standard = lagrange(x_nodes, y_nodes)
+coeffs_direct = poly_standard.coef[::-1] # Від a_0 до a_9
+
+print("\n=== КОЕФІЦІЄНТИ ПРЯМОГО ПОЛІНОМА ЛАГРАНЖА P_9(x) ===")
+for i, c in enumerate(coeffs_direct):
+    print(f"a_{i} (при x^{i}) = {c:14.8f}")
+
+print("\n=== ДОДАНКИ ОБЕРНЕНОГО ПОЛІНОМА ЛАГРАНЖА L_9^(-1)(0) ===")
+inv_sum = 0.0
+for k in range(m):
+    phi_k_0 = 1.0
+    for j in range(m):
+        if j != k:
+            phi_k_0 *= (0.0 - y_nodes[j]) / (y_nodes[k] - y_nodes[j])
+    term_val = x_nodes[k] * phi_k_0
+    inv_sum += term_val
+    print(f"k = {k}: x_{k} * phi_{k}(0) = {term_val:14.10f}")
+print(f"Сума (знайдений корінь x_оберн) = {inv_sum:.10f}")
+
+print("\n=== КОЕФІЦІЄНТИ ПРИРОДНОГО КУБІЧНОГО СПЛАЙНА S_3(x) ===")
+print(f"{'Сегмент [x_k; x_{k+1}]':>22} | {'a_k':>10} | {'b_k':>10} | {'c_k':>10} | {'d_k':>10}")
+print("-" * 72)
+for k in range(m - 1):
+    d_k, c_k, b_k, a_k = cs_natural.c[:, k]
+    seg_str = f"[{x_nodes[k]:.4f}; {x_nodes[k+1]:.4f}]"
+    print(f"{seg_str:>22} | {a_k:10.6f} | {b_k:10.6f} | {c_k:10.6f} | {d_k:10.6f}")
